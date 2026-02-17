@@ -4,6 +4,7 @@ import requests
 from urllib.parse import urlparse
 import time
 import os
+from datetime import datetime
 from bs4 import BeautifulSoup # type: ignore
 import json
 
@@ -98,7 +99,7 @@ if __name__ == "__main__":
     # Full range to scrape
     #category_list = ["BS", "ST", "SVP", "SP", "SMP", "PR"]
     category_list = ["BS", "ST"]  # Promo cards use a different method
-    year_list = list(range(2010, 2025)) + [0000]
+    year_list = list(range(2010, datetime.now().year + 1)) + [0000]
     start_ver = 0
 
     for category in category_list:  # loop category
