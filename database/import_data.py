@@ -22,6 +22,10 @@ import sqlite3
 import argparse
 from pathlib import Path
 
+# Allow importing pokemon_names_en from the same directory as this script
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from pokemon_names_en import POKEDEX_EN, REGION_PREFIX_EN, NAME_PREFIX_EN, NAME_SUFFIX_EN
+
 # ── paths ──────────────────────────────────────────────────────────────────────
 REPO_ROOT        = Path(__file__).resolve().parent.parent
 SCHEMA_FILE      = Path(__file__).resolve().parent / "schema.sql"
@@ -39,6 +43,72 @@ def json_dumps(obj):
     if obj is None:
         return None
     return json.dumps(obj, ensure_ascii=False)
+
+
+def build_english_card_name(card: dict) -> "str | None":
+    """
+    Reconstruct an English card name for Pokémon cards using the Pokédex
+    number → English name mapping and known prefix/suffix tokens.
+    Returns None for Trainer and Energy cards.
+
+    Examples:
+      "리자몽 EX"        → "Charizard EX"
+      "M 리자몽 EX"      → "Mega Charizard EX"
+      "원시 가이오가 EX"  → "Primal Kyogre EX"
+      "히스이 조로아크 V" → "Hisuian Zoroark V"
+      "피카츄 & 꼬부기 GX" → "Pikachu & Squirtle GX"
+    """
+    if card.get("supertype") != "포켓몬":
+        return None
+
+    pokemons = card.get("pokemons") or []
+    if not pokemons:
+        return None
+
+    kr_name = card.get("name", "")
+    kr_tokens = kr_name.split()
+
+    # Build the per-species English name (with regional prefix if present)
+    species_parts = []
+    for poke in pokemons:
+        dex_num = poke.get("pokedexNumber", -1)
+        species_en = POKEDEX_EN.get(dex_num)
+        if not species_en:
+            # Dex number unknown — fall back to the Korean name verbatim
+            species_parts.append(poke.get("name", ""))
+            continue
+
+        region = poke.get("region")
+        if region and region in REGION_PREFIX_EN:
+            species_parts.append(f"{REGION_PREFIX_EN[region]} {species_en}")
+        else:
+            species_parts.append(species_en)
+
+    # TAG TEAM and multi-Pokémon cards use " & " between species
+    base_name = " & ".join(species_parts)
+
+    # Find a non-regional card-name prefix token (e.g. "M", "원시", "찬란한")
+    prefix = ""
+    for token in kr_tokens:
+        if token in NAME_PREFIX_EN:
+            prefix = NAME_PREFIX_EN[token]
+            break
+
+    # Find the mechanic suffix (e.g. "EX", "GX", "VMAX") from the end
+    suffix = ""
+    for token in reversed(kr_tokens):
+        if token in NAME_SUFFIX_EN:
+            suffix = NAME_SUFFIX_EN[token]
+            break
+
+    parts = []
+    if prefix:
+        parts.append(prefix)
+    parts.append(base_name)
+    if suffix:
+        parts.append(suffix)
+
+    return " ".join(parts)
 
 
 def open_db(db_path: Path, reset: bool = False) -> sqlite3.Connection:
@@ -169,15 +239,18 @@ def import_card(conn: sqlite3.Connection, card: dict, set_code: str) -> None:
     else:
         regu_marks_json = json_dumps([])
 
+    english_name = build_english_card_name(card)
+
     cur.execute("""
         INSERT OR IGNORE INTO cards
-            (card_id, name, supertype, subtypes, rules, regulation_marks,
+            (card_id, name, english_name, supertype, subtypes, rules, regulation_marks,
              hp, type, weakness_type, weakness_value, resistance_type, resistance_value,
              retreat_cost, flavor_text, texts)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         card_id,
         name,
+        english_name,
         supertype,
         json_dumps(card.get("subtypes")),
         json_dumps(card.get("rules")),
@@ -196,15 +269,18 @@ def import_card(conn: sqlite3.Connection, card: dict, set_code: str) -> None:
     # ── card_pokemons ──────────────────────────────────────────────────────────
     pokemons = card.get("pokemons") or []
     for idx, poke in enumerate(pokemons):
+        dex_num = poke.get("pokedexNumber", -1)
+        poke_en = POKEDEX_EN.get(dex_num)
         cur.execute("""
             INSERT OR IGNORE INTO card_pokemons
-                (card_id, sort_order, name, pokedex_number, region)
-            VALUES (?, ?, ?, ?, ?)
+                (card_id, sort_order, name, english_name, pokedex_number, region)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
             card_id,
             idx,
             poke.get("name", ""),
-            poke.get("pokedexNumber", -1),
+            poke_en,
+            dex_num,
             poke.get("region"),
         ))
 

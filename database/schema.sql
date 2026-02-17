@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS sets (
 CREATE TABLE IF NOT EXISTS cards (
     card_id             TEXT    PRIMARY KEY,  -- Unique card effect ID (cardID field)
     name                TEXT    NOT NULL,     -- Card name (Korean)
+    english_name        TEXT,                 -- Card name reconstructed in English (null for Trainers/Energy)
     supertype           TEXT    NOT NULL,     -- "포켓몬" | "트레이너스" | "에너지"
     subtypes            TEXT,                 -- JSON array (e.g. ["기본", "EX"])
     rules               TEXT,                 -- JSON array of rule box texts
@@ -71,9 +72,11 @@ CREATE TABLE IF NOT EXISTS card_pokemons (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     card_id         TEXT    NOT NULL REFERENCES cards(card_id) ON DELETE CASCADE,
     sort_order      INTEGER NOT NULL DEFAULT 0,  -- 0-indexed position on card
-    name            TEXT    NOT NULL,            -- Pokémon name (Korean)
-    pokedex_number  INTEGER NOT NULL,            -- National Pokédex number (-1 for Marshadow/unknowns)
-    region          TEXT                         -- Regional form prefix, e.g. "가라르" (null if none)
+    name            TEXT    NOT NULL,            -- Pokémon species name (Korean)
+    english_name    TEXT,                        -- Pokémon species name (English), looked up by Pokédex number
+    pokedex_number  INTEGER NOT NULL,            -- National Pokédex number (-1 for unknowns)
+    region          TEXT,                        -- Regional form prefix, e.g. "가라르" (null if none)
+    UNIQUE (card_id, sort_order)
 );
 
 -- ============================================================
