@@ -33,7 +33,7 @@ def build_url(head, category, year, ver, num):
 
 def check_success(soup):
     # Search <script> tags directly to check for "card data not found" error message
-    script_tag = soup.find('script', text=lambda t: t and '없는 카드데이터 입니다.' in t)
+    script_tag = soup.find('script', string=lambda t: t and '없는 카드데이터 입니다.' in t)
 
     # If the script tag contains the warning message, return False
     if script_tag:
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     # Full range to scrape
     #category_list = ["BS", "ST", "SVP", "SP", "SMP", "PR"]
     category_list = ["BS", "ST"]  # Promo cards use a different method
-    year_list = list(range(2010, datetime.now().year + 1)) + [0000]
+    year_list = list(range(2026, datetime.now().year + 1)) + [0000]
     start_ver = 0
 
     for category in category_list:  # loop category

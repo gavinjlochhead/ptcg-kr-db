@@ -428,6 +428,10 @@ def make_cardID(item):
         attacks = item['attacks']
         abilitites = item['abilities']
 
+        # Handle case where no Pokémon was identified
+        if not pokemons or len(pokemons) == 0:
+            return 'UNKNOWN_POKEMON'
+
         # First 2 chars of Pokémon name
         # Special cases for 1-character names (Mew and Togepi only)
         pokemon_name = pokemons[0]['name']
